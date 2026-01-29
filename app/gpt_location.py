@@ -481,3 +481,81 @@ async def _get_country_code_google(location_str: str) -> str:
     except Exception as e:
         print(f"[Google Maps Error] {e}")
     return None
+
+
+def get_country_from_timezone(timezone_offset: str) -> str:
+    """
+    Convert timezone offset (e.g., '+0300', '-0500') to most likely country code.
+    Returns ISO 2-letter country code or None.
+    
+    Note: This is an approximation since multiple countries can share the same timezone.
+    Returns the most common/populous country for that timezone.
+    """
+    if not timezone_offset:
+        return None
+    
+    # Remove + or - and convert to integer offset in hours
+    try:
+        sign = 1 if timezone_offset[0] == '+' else -1
+        hours = int(timezone_offset[1:3])
+        minutes = int(timezone_offset[3:5])
+        offset_hours = sign * (hours + minutes / 60.0)
+    except (ValueError, IndexError):
+        return None
+    
+    # Timezone offset to country mapping (most common countries per timezone)
+    # Format: offset_hours: [country_codes] (ordered by population/common usage)
+    timezone_to_country = {
+        -12.0: ['KI'],  # Kiribati
+        -11.0: ['US'],  # American Samoa, Hawaii (part)
+        -10.0: ['US'],  # Hawaii, Alaska (part)
+        -9.5: ['PF'],   # French Polynesia
+        -9.0: ['US'],   # Alaska
+        -8.0: ['US', 'CA', 'MX'],  # Pacific Time
+        -7.0: ['US', 'CA', 'MX'],  # Mountain Time
+        -6.0: ['US', 'CA', 'MX'],  # Central Time
+        -5.0: ['US', 'CA', 'MX', 'CO', 'PE'],  # Eastern Time, Colombia, Peru
+        -4.0: ['US', 'VE', 'BO'],  # Atlantic Time, Venezuela, Bolivia
+        -3.5: ['CA'],  # Newfoundland
+        -3.0: ['BR', 'AR', 'CL'],  # Brazil, Argentina, Chile
+        -2.0: ['BR'],  # Brazil (Fernando de Noronha)
+        -1.0: ['PT', 'CV'],  # Portugal, Cape Verde
+        0.0: ['GB', 'IE', 'PT', 'IS'],  # GMT/UTC
+        1.0: ['DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'PL'],  # Central European Time
+        2.0: ['EG', 'ZA', 'GR', 'FI', 'RO'],  # Eastern European Time
+        3.0: ['RU', 'KE', 'SA', 'IQ'],  # Moscow, Kenya, Saudi Arabia, Iraq
+        3.5: ['IR'],  # Iran
+        4.0: ['AE', 'RU'],  # UAE, Russia (Samara)
+        4.5: ['AF'],  # Afghanistan
+        5.0: ['PK', 'RU'],  # Pakistan, Russia (Yekaterinburg)
+        5.5: ['IN'],  # India
+        5.75: ['NP'],  # Nepal
+        6.0: ['BD', 'KZ', 'RU'],  # Bangladesh, Kazakhstan
+        6.5: ['MM'],  # Myanmar
+        7.0: ['TH', 'VN', 'ID', 'RU'],  # Thailand, Vietnam, Indonesia (West), Russia
+        8.0: ['CN', 'SG', 'MY', 'PH', 'ID'],  # China, Singapore, Malaysia, Philippines, Indonesia (Central)
+        9.0: ['JP', 'KR', 'ID'],  # Japan, South Korea, Indonesia (East)
+        9.5: ['AU'],  # Australia (Central)
+        10.0: ['AU', 'PG', 'RU'],  # Australia (East), Papua New Guinea, Russia
+        10.5: ['AU'],  # Australia (Lord Howe)
+        11.0: ['NC', 'RU'],  # New Caledonia, Russia
+        12.0: ['NZ', 'RU'],  # New Zealand, Russia
+        13.0: ['NZ'],  # New Zealand (Chatham)
+        14.0: ['KI'],  # Kiribati (Line Islands)
+    }
+    
+    # Find closest match (within 0.5 hours)
+    closest_offset = None
+    min_diff = float('inf')
+    
+    for offset, countries in timezone_to_country.items():
+        diff = abs(offset - offset_hours)
+        if diff < min_diff:
+            min_diff = diff
+            closest_offset = offset
+    
+    # If we found a close match (within 0.5 hours), return the first (most common) country
+    if closest_offset is not None and min_diff <= 0.5:
+        return timezone_to_country[closest_offset][0]
+    
+    return None

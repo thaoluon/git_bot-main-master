@@ -88,6 +88,12 @@ async def run():
                     timezone = github.get_timezone_from_commits(username)
                     if timezone:
                         print(f"[Timezone] @{username} — Timezone: {timezone}")
+                        # Convert timezone to country code
+                        country_code = gpt_location.get_country_from_timezone(timezone)
+                        if country_code:
+                            print(f"[Timezone] @{username} — Timezone {timezone} → Country: {country_code}")
+                        else:
+                            print(f"[Timezone] @{username} — Timezone {timezone} → Country: Unknown (could not map)")
                     else:
                         print(f"[Timezone] @{username} — No timezone found in commits (no verification data)")
                 else:
@@ -113,8 +119,9 @@ async def run():
 
                 # Save to database
                 try:
-                    # Use timezone if available, otherwise use country_code
-                    country_or_timezone = timezone if timezone else country_code
+                    # Use country_code if available (preferred), otherwise fall back to timezone
+                    # country_code is better because it's more specific than just timezone offset
+                    country_or_timezone = country_code if country_code else (timezone if timezone else None)
                     
                     new_user = models.User(
                         name=name, 
@@ -138,7 +145,8 @@ async def run():
                         "location": location,
                         "country": country_or_timezone
                     })
-                    print(f"[SUCCESS] Saved user: {name} ({email}) with {'timezone' if timezone else 'country'}: {country_or_timezone or 'Unknown'}")
+                    location_type = "country" if country_code else ("timezone" if timezone else "location")
+                    print(f"[SUCCESS] Saved user: {name} ({email}) with {location_type}: {country_or_timezone or 'Unknown'}")
                 except IntegrityError:
                     user_db_session.rollback()
                     print(f"[Skip] Duplicate user @{username} detected (database constraint violation)")
